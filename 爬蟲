@@ -1,0 +1,78 @@
+library("stringr")
+library("xml2")
+library("rvest")
+
+library(bitops)
+library(RCurl)
+library(XML)
+library("dplyr")
+house_inf<-data.frame()
+##temp <- getURL("https://buy.housefun.com.tw/",encoding="utf-8", curl=cHandle)
+#house<-htmlParse(temp,encoding="utf-8")
+#rootNode<-xmlRoot(house)
+#temp <- strsplit(temp,"rn")[[1]]
+R
+myHttpheader<- c(
+  "User-Agent"="Mozilla/5.0(Windows; U; Windows NT 5.1; zh-CN; rv:1.9.1.6)",
+  "Accept"="text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language"="en-us",
+  "Connection"="keep-alive",
+  "Accept-Charset"="GB2312,utf-8;q=0.7,*;q=0.7"
+)
+cHandle<- getCurlHandle(httpheader = myHttpheader)
+
+d =debugGatherer()
+
+for (i in 361:400){
+  
+  web<-paste0("https://buy.housefun.com.tw/%e8%b2%b7%e5%b1%8b/%e5%8f%b0%e5%8c%97%e5%b8%82?hd_CityID=0000&hd_Purpose=K&hd_Sequence=Sequp&hd_SearchGroup=Group01&hd_PM=",i,"&hd_Tab=1")
+  temp <- getURL(web,encoding="utf-8", curl=cHandle)
+  house<-htmlParse(temp,encoding="utf-8")
+ rootNode<-xmlRoot(house)
+ 
+ giveNames = function(rootNode){
+ names <- xpathSApply(rootNode,"//div/h1[@class='casename']",xmlValue) 
+    #xmlValue是取该标签值得函数
+   names }
+   giveNames(rootNode)
+    name<-as.data.frame(giveNames(rootNode))
+     giveaddress= function(rootNode){
+          address <- xpathSApply(rootNode,"//div/address[@class='address']",xmlValue)
+          address }
+      giveaddress(rootNode)
+      address<-as.data.frame(giveaddress(rootNode))
+      Unitprice= function(rootNode){
+           address <- xpathSApply(rootNode,"///div//span/em[@class='wording']",xmlValue)
+           address }
+       Unitprice(rootNode)
+      Unitprice<-as.data.frame(Unitprice(rootNode))
+      totalprice= function(rootNode){
+           address <- xpathSApply(rootNode,"///div//a/em[@class='number']",xmlValue)
+          address}
+      totalprice(rootNode)
+      totalprice<-as.data.frame(totalprice(rootNode))
+house<-  data.frame(name[1:10,],address[1:10,],Unitprice[1:10,],totalprice[1:10,])
+        house_inf<-rbind(house_inf,house)##添加到原有的档案中
+ }
+
+setwd("D:\\研究所\\研究生课件\\R语言资料分析\\爬虫\\台北")
+write.csv(house_inf,file="台北二手房无店铺.csv")
+
+colnames(house_inf)=c("name","address","unitprice","totalprice")
+
+new<-filter(house_inf,!is.na(unitprice=="NA"))
+str(new)
+new$unitprice<-as.character(new$unitprice)  
+new2<-filter(new,nchar(new$unitprice)<13) 
+new2$unitprice<-strsplit(new2$unitprice, split = '萬/坪')
+##整理求平均
+new2$unitprice<-as.numeric (new2$unitprice)
+str(new2)
+write.csv(new2,file="台北二手房无店铺-单价全.csv")
+new3<-local({group_by(new2,address)%>%
+    summarise(unitprice_mean=mean(unitprice))})
+
+new3$unitprice_mean<-new3$unitprice_mean*10000
+write.csv(new3,file="台北二手房无店铺-平均.csv")
+new3$unitprice_mean<-new3$unitprice_mean/4.3/3.3058
+write.csv(new3,file="台北二手房无店铺-平均-大陆.csv")
