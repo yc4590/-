@@ -1,0 +1,78 @@
+library("stringr")
+library("xml2")
+library("rvest")
+library("dplyr")
+library(bitops)
+library(RCurl)
+library("stringr")
+library("xml2")
+library("rvest")
+library("dplyr")
+library(bitops)
+library(RCurl)
+library(XML)
+house_inf<-data.frame()
+
+myHttpheader<- c(
+  "User-Agent"="Mozilla/5.0(Windows; U; Windows NT 5.1; zh-CN; rv:1.9.1.6)",
+  "Accept"="text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language"="en-us",
+  "Connection"="keep-alive",
+  "Accept-Charset"="GB2312,utf-8;q=0.7,*;q=0.7"
+)
+cHandle<- getCurlHandle(httpheader = myHttpheader)
+
+d =debugGatherer()
+
+#对爬取页数进行设定并创建数据框
+
+
+
+house_inf<-data.frame()
+
+guess_encoding("http://sz.lianjia.com/ershoufang/pg/") 
+repair_encoding("http://sz.lianjia.com/ershoufang/pg/", from = NULL)
+#(1) 判断链接
+#url <- "http://hz.lianjia.com/ershoufang/pg/"
+#url.exists(url)
+
+#(2) 读取网页资源
+#R.url <- getURL(url,encoding="GBK")
+#temp <- strsplit(R.url,"rn")
+#web<- iconv(temp,"UTF-8","gbk" )
+#关键在于iconv函数的使用，没有乱码了
+
+##中文，html(data,encoding='UTF-8')还有iconv(data,'utf-8','gbk')
+#可以有效避免大部分乱码。但是R对中文支持真的很
+
+#使用for循环进行批量数据爬取（发现url的规律，写for循环语句）
+
+for (i in 101:102){
+  
+  web<- read_html(str_c("http://sz.lianjia.com/ershoufang/pg",i,"co32/"),encoding="UTF-8")
+  #web<- html(web,encoding="UTF-8")
+  
+  web%>% iconv(from = 'UTF-8', to = 'UTF-8')
+  #用SelectorGadget定位节点信息并爬取房名
+  ##测试html_nodes()：节点 p.t1  span.t2  span.t3 span.t4 span.t5
+  name<-web %>% html_nodes(".houseInfo a")%>%html_text() %>% iconv(from = 'UTF-8', to = 'UTF-8')
+  #爬取二手房基本信息并消除空格
+  basic_inf<-web %>% html_nodes(".houseInfo")%>%html_text()%>% iconv(from = 'UTF-8', to = 'UTF-8')
+  basic_inf<-str_replace_all(basic_inf," ","")
+  #SelectorGadget定位节点信息爬取地址
+  address<-web %>% html_nodes(".positionInfo a")%>%html_text()%>% iconv(from = 'UTF-8', to = 'UTF-8')
+  #SelectorGadget定位节点信息爬取总价UTF-8
+  totalprice<-web %>% html_nodes(".totalPrice span")%>%html_text()%>% iconv(from = 'UTF-8', to = 'UTF-8')
+  #SelectorGadget定位节点信息爬取单价
+  unitprice<-web %>% html_nodes(".unitPrice span")%>%html_text()%>% iconv(from = 'UTF-8', to = 'UTF-8')
+  unitprice<-substring(unitprice,"3","7")
+  #创建数据框存储以上信息
+  house<-data_frame(name,address,unitprice,totalprice,basic_inf)
+  house_inf<-rbind(house_inf,house)##添加到原有的档案中
+}
+
+##</a></div><div class="address"><div class="houseInfo"><span class="houseIcon"></span><a href="http://hz.lianjia.com/xiaoqu/1811043636840/" target="_blank" data-log_index="6" data-el="region">嘉泰馨庭 </a>
+#将数据写入csv文档
+setwd("D:\\研究所\\研究生课件\\R语言资料分析\\爬虫\\深圳")
+write.csv(house_inf,file="爬虫深圳二手房.csv")
+
